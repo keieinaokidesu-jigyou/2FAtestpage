@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ワンタイムパスワード生成</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/otpauth/9.2.2/otpauth.umd.min.js"></script>
+    <style>
+        :root { --main-color: #1da1f2; --bg-color: #f5f8fa; --text-color: #0f1419; --sub-text: #536471; }
+        body { font-family: -apple-system, sans-serif; background-color: var(--bg-color); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: white; padding: 24px; border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,0.08); text-align: center; width: 90%; max-width: 360px; }
+        .header-title { font-size: 20px; font-weight: 800; color: var(--text-color); margin: 0 0 20px 0; }
+        .code-container { position: relative; cursor: pointer; padding: 10px; border-radius: 12px; transition: background 0.2s; }
+        .code-container:hover { background-color: rgba(29, 161, 242, 0.05); }
+        .code { font-size: 48px; font-weight: 700; color: var(--main-color); letter-spacing: 4px; margin: 0; }
+        .copy-btn { background-color: var(--main-color); color: white; border: none; padding: 8px 16px; border-radius: 9999px; font-weight: 700; cursor: pointer; margin-top: 12px; }
+        .timer-bar { height: 4px; background: #eff3f4; border-radius: 2px; overflow: hidden; margin: 20px 0; }
+        .progress { height: 100%; background: var(--main-color); width: 100%; transition: width 1s linear; }
+        .footer { margin-top: 20px; border-top: 1px solid #eff3f4; padding-top: 16px; }
+        input { width: 90%; padding: 8px; border: 1px solid #cfd9de; border-radius: 4px; text-align: center; }
+        .toast { position: fixed; bottom: 20px; background: rgba(0,0,0,0.8); color: white; padding: 8px 16px; border-radius: 8px; display: none; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1 class="header-title">ワンタイムパスワード生成</h1>
+    <div class="code-container" onclick="copyCode()">
+        <div class="code" id="totp-code">------</div>
+        <div style="font-size: 11px; color: var(--sub-text); margin-top: 4px;">クリックしてコピー</div>
+    </div>
+    <div class="timer-bar"><div class="progress" id="progress"></div></div>
+    <button class="copy-btn" id="copy-btn" onclick="copyCode()">コードをコピー</button>
+    <div class="footer">
+        <p style="font-size: 12px; color: var(--sub-text);">シークレットキーを直接入力:</p>
+        <input type="text" id="secret-input" placeholder="キーを入力" oninput="updateKey()">
+    </div>
+</div>
+<div id="toast" class="toast">コピーしました！</div>
+<script>
+    let currentSecret = "";
+    function getParams() {
+        const params = new URLSearchParams(window.location.search);
+        const secret = params.get('key');
+        if (secret) {
+            document.getElementById('secret-input').value = secret;
+            currentSecret = secret.replace(/\s+/g, '').toUpperCase();
+        }
+    }
+    function updateKey() {
+        const input = document.getElementById('secret-input').value;
+        currentSecret = input.replace(/\s+/g, '').toUpperCase();
+    }
+    function copyCode() {
+        const codeText = document.getElementById("totp-code").innerText;
+        if (codeText === "------" || codeText === "ERROR") return;
+        navigator.clipboard.writeText(codeText).then(() => {
+            const toast = document.getElementById("toast");
+            toast.style.display = "block";
+            setTimeout(() => { toast.style.display = "none"; }, 2000);
+        });
+    }
+    function generateOTP() {
+        if (!currentSecret) return;
+        try {
+            const totp = new window.OTPAuth.TOTP({
+                algorithm: "SHA1", digits: 6, period: 30,
+                secret: window.OTPAuth.Secret.fromBase32(currentSecret)
+            });
+            document.getElementById("totp-code").innerText = totp.generate();
+            const epoch = Math.floor(Date.now() / 1000);
+            const timeLeft = 30 - (epoch % 30);
+            document.getElementById("progress").style.width = (timeLeft / 30) * 100 + "%";
+        } catch (e) { document.getElementById("totp-code").innerText = "ERROR"; }
+    }
+    getParams();
+    setInterval(generateOTP, 1000);
+    generateOTP();
+</script>
+</body>
+</html>
